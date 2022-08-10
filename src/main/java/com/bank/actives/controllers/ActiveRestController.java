@@ -10,8 +10,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
+
+import javax.validation.Valid;
 
 @RestController
 @RequestMapping("/api/active")
@@ -48,7 +51,7 @@ public class ActiveRestController
     }
 
     @PostMapping
-    public Mono<ResponseEntity<Object>> create(@RequestBody Active act)
+    public Mono<ResponseEntity<Object>> create(@Valid @RequestBody  Active act)
     {
         log.info("[INI] create Active");
 
