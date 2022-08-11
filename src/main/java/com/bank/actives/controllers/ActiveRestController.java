@@ -3,14 +3,13 @@ package com.bank.actives.controllers;
 import com.bank.actives.handler.ResponseHandler;
 import com.bank.actives.models.dao.ActiveDao;
 import com.bank.actives.models.documents.Active;
-import com.bank.actives.services.ParameterService;
+import com.bank.actives.services.ClientService;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
@@ -24,7 +23,7 @@ public class ActiveRestController
     private ActiveDao dao;
 
     @Autowired
-    private ParameterService parameterService;
+    private ClientService clientService;
     private static final Logger log = LoggerFactory.getLogger(ActiveRestController.class);
 
     @GetMapping
@@ -55,16 +54,29 @@ public class ActiveRestController
     {
         log.info("[INI] create Active");
 
-        act.getCredits().forEach(credit -> credit.setId(new ObjectId().toString()));
+        return clientService.findByCode(act.getClientId())
+                .doOnNext(transaction -> log.info(transaction.toString()))
+                .flatMap(responseClient -> {
+                    if(responseClient.getData() == null){
+                        return Mono.just(ResponseHandler.response("Does not have client", HttpStatus.BAD_REQUEST, null));
+                    }
 
-        return dao.save(act)
-                .doOnNext(active ->
-                {
-                    log.info(active.toString());
+                    if(responseClient.getData().getType().equals("PERSONAL")){
+                        if(act.getCredits().size()>1){
+                            return Mono.just(ResponseHandler.response(
+                                    "Only one credit per person is allowed", HttpStatus.BAD_REQUEST, null));
+                        }
+                    }
+
+                    act.getCredits().forEach(credit -> credit.setId(new ObjectId().toString()));
+                    return dao.save(act)
+                            .doOnNext(active -> log.info(active.toString()))
+                            .map(active -> ResponseHandler.response("Done", HttpStatus.OK, active)                )
+                            .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
+                            ;
 
                 })
-                .map(active -> ResponseHandler.response("Done", HttpStatus.OK, active)                )
-                .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
+                .switchIfEmpty(Mono.just(ResponseHandler.response("Client No Content", HttpStatus.BAD_REQUEST, null)))
                 .doFinally(fin -> log.info("[END] create Active"));
     }
 
@@ -96,34 +108,6 @@ public class ActiveRestController
             else
                 return Mono.just(ResponseHandler.response("Not found", HttpStatus.NOT_FOUND, null));
         }).doFinally(fin -> log.info("[END] update Active"));
-
-    }
-
-    @GetMapping("/type/{id}")
-    public Mono<ResponseEntity<Object>> FindType(@PathVariable String id) {
-        log.info("[INI] Find Type Active");
-        return dao.findById(id)
-                .doOnNext(pasive -> log.info(pasive.toString()))
-                .flatMap(pasive ->
-                        {
-                            return parameterService.findByCode(pasive.getActiveType().getValue())
-                                    .doOnNext(responseParameter -> log.info(responseParameter.toString()))
-                                    .flatMap(responseParameter ->
-                                    {
-                                        if(!responseParameter.getData().isEmpty())
-                                        {
-                                            return Mono.just(ResponseHandler.response("Done", HttpStatus.OK, responseParameter.getData()));
-                                        }
-                                        else
-                                        {
-                                            return Mono.just(ResponseHandler.response("Empty", HttpStatus.NO_CONTENT, null));
-                                        }
-                                    });
-                        }
-                )
-                .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
-                .switchIfEmpty(Mono.just(ResponseHandler.response("Empty", HttpStatus.NO_CONTENT, null)))
-                .doFinally(fin -> log.info("[END] Find Type Pasive"));
 
     }
 }

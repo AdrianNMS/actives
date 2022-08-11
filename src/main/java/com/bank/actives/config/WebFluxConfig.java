@@ -19,7 +19,7 @@ import reactor.netty.http.client.HttpClient;
 @EnableWebFlux
 public class WebFluxConfig implements WebFluxConfigurer
 {
-	@Value("${app.module.service.url}")
+	@Value("${app.module.client.service.url}")
 	private String url;
 
 	@Bean
