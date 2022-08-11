@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
 import javax.validation.Valid;
+import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/api/active")
@@ -53,7 +54,6 @@ public class ActiveRestController
     public Mono<ResponseEntity<Object>> create(@Valid @RequestBody  Active act)
     {
         log.info("[INI] create Active");
-
         return clientService.findByCode(act.getClientId())
                 .doOnNext(transaction -> log.info(transaction.toString()))
                 .flatMap(responseClient -> {
@@ -69,6 +69,7 @@ public class ActiveRestController
                     }
 
                     act.getCredits().forEach(credit -> credit.setId(new ObjectId().toString()));
+                    act.setDateRegister(LocalDateTime.now());
                     return dao.save(act)
                             .doOnNext(active -> log.info(active.toString()))
                             .map(active -> ResponseHandler.response("Done", HttpStatus.OK, active)                )
@@ -81,16 +82,18 @@ public class ActiveRestController
     }
 
     @PutMapping("/{id}")
-    public Mono<ResponseEntity<Object>> update(@PathVariable("id") String id, @RequestBody Active act)
+    public Mono<ResponseEntity<Object>> update(@PathVariable("id") String id,@Valid @RequestBody Active act)
     {
         log.info("[INI] update Active");
 
         return dao.existsById(id).flatMap(check -> {
-            if (check)
+            if (check){
+                act.setDateUpdate(LocalDateTime.now());
                 return dao.save(act)
                         .doOnNext(active -> log.info(active.toString()))
                         .map(active -> ResponseHandler.response("Done", HttpStatus.OK, active)                )
                         .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)));
+            }
             else
                 return Mono.just(ResponseHandler.response("Not found", HttpStatus.NOT_FOUND, null));
 
