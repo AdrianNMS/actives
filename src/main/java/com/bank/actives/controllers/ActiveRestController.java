@@ -163,10 +163,7 @@ public class ActiveRestController
                                 .flatMap(activ -> Mono.just(ResponseHandler.response("Done", HttpStatus.OK, null)));
                     }
                     else
-                        return Mono.just(ResponseHandler.response("Done", HttpStatus.OK, null));
-
-
-
+                        return Mono.just(ResponseHandler.response("Empty", HttpStatus.NO_CONTENT, null));
 
                 })
                 .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
