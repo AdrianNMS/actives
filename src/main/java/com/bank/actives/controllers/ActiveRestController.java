@@ -3,6 +3,8 @@ package com.bank.actives.controllers;
 import com.bank.actives.handler.ResponseHandler;
 import com.bank.actives.models.dao.ActiveDao;
 import com.bank.actives.models.documents.Active;
+import com.bank.actives.models.documents.Credit;
+import com.bank.actives.models.documents.Mont;
 import com.bank.actives.services.ClientService;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
@@ -15,6 +17,7 @@ import reactor.core.publisher.Mono;
 
 import javax.validation.Valid;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/active")
@@ -22,7 +25,6 @@ public class ActiveRestController
 {
     @Autowired
     private ActiveDao dao;
-
     @Autowired
     private ClientService clientService;
     private static final Logger log = LoggerFactory.getLogger(ActiveRestController.class);
@@ -112,5 +114,83 @@ public class ActiveRestController
                 return Mono.just(ResponseHandler.response("Not found", HttpStatus.NOT_FOUND, null));
         }).doFinally(fin -> log.info("[END] update Active"));
 
+    }
+
+    @GetMapping("/mont/{id}/{idCredit}")
+    public Mono<ResponseEntity<Object>> getMontData(@PathVariable String id,@PathVariable String idCredit) {
+        log.info("[INI] Find Pasive");
+        return dao.findById(id)
+                .doOnNext(active -> log.info(active.toString()))
+                .flatMap(active -> {
+                    Optional<Credit> existCredit = active.getCredits()
+                            .stream()
+                            .filter(credit -> credit.getId().equals(idCredit))
+                            .findFirst();
+
+                    if(existCredit.isPresent())
+                    {
+                        Mont mont = new Mont();
+                        mont.setMont(existCredit.get().getCreditMont());
+                        return Mono.just(ResponseHandler.response("Done", HttpStatus.OK, mont));
+                    }
+                    else
+                        return Mono.just(ResponseHandler.response("Empty", HttpStatus.NO_CONTENT, null));
+
+                })
+                .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
+                .switchIfEmpty(Mono.just(ResponseHandler.response("Empty", HttpStatus.NO_CONTENT, null)))
+                .doFinally(fin -> log.info("[END] Find Pasive"));
+    }
+
+    @PostMapping("/mont/{id}/{idCredit}")
+    public Mono<ResponseEntity<Object>> setMontData(@PathVariable String id, @PathVariable String idCredit, @RequestBody Mont m) {
+        log.info("[INI] setMont Pasive");
+        return dao.findById(id)
+                .doOnNext(active -> log.info(active.toString()))
+                .flatMap(a ->
+                {
+                    Optional<Credit> existCredit = a.getCredits()
+                            .stream()
+                            .filter(credit -> credit.getId().equals(idCredit))
+                            .findFirst();
+
+                    if(existCredit.isPresent())
+                    {
+                        Credit credit = existCredit.get();
+                        credit.setCreditMont(credit.getCreditMont()-m.getMont());
+
+                        return dao.save(a)
+                                .flatMap(activ -> Mono.just(ResponseHandler.response("Done", HttpStatus.OK, null)));
+                    }
+                    else
+                        return Mono.just(ResponseHandler.response("Done", HttpStatus.OK, null));
+
+
+
+
+                })
+                .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
+                .switchIfEmpty(Mono.just(ResponseHandler.response("Empty", HttpStatus.NO_CONTENT, null)))
+                .doFinally(fin -> log.info("[END] setMont Pasive"));
+    }
+
+    @GetMapping("/creditcard/{id}/{idCreditCard}")
+    public Mono<ResponseEntity<Object>> checkCreditCard(@PathVariable String id,@PathVariable int idCreditCard)
+    {
+        log.info("[INI] check active credit card");
+        return dao.findAll()
+                .filter(active ->
+                        active.getClientId().equals(id) && !active.getCredits().isEmpty() &&active.getActiveType().value == idCreditCard)
+                .collectList()
+                .flatMap(actives -> {
+                    Optional<Active> existActive = actives.stream().findFirst();
+
+                    if(existActive.isPresent())
+                        return Mono.just(ResponseHandler.response("Done", HttpStatus.OK, true));
+                    else
+                        return Mono.just(ResponseHandler.response("Not Found", HttpStatus.BAD_REQUEST, null));
+                })
+                .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
+                .doFinally(fin -> log.info("[END] check active credit card"));
     }
 }
