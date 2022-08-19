@@ -36,7 +36,7 @@ public class ActiveRestController
         return dao.findAll()
                 .doOnNext(active -> log.info(active.toString()))
                 .collectList()
-                .map(actives -> ResponseHandler.response("Done", HttpStatus.OK, actives))
+                .flatMap(actives -> Mono.just(ResponseHandler.response("Done", HttpStatus.OK, actives)))
                 .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
                 .doFinally(fin -> log.info("[END] findAll Active"));
     }
@@ -47,7 +47,7 @@ public class ActiveRestController
         log.info("[INI] find Active");
         return dao.findById(id)
                 .doOnNext(active -> log.info(active.toString()))
-                .map(active -> ResponseHandler.response("Done", HttpStatus.OK, active))
+                .flatMap(active -> Mono.just(ResponseHandler.response("Done", HttpStatus.OK, active)))
                 .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
                 .doFinally(fin -> log.info("[END] find Active"));
     }
@@ -142,35 +142,6 @@ public class ActiveRestController
                 .doFinally(fin -> log.info("[END] Find Pasive"));
     }
 
-    @PostMapping("/mont/{id}/{idCredit}")
-    public Mono<ResponseEntity<Object>> setMontData(@PathVariable String id, @PathVariable String idCredit, @RequestBody Mont m) {
-        log.info("[INI] setMont Pasive");
-        return dao.findById(id)
-                .doOnNext(active -> log.info(active.toString()))
-                .flatMap(a ->
-                {
-                    Optional<Credit> existCredit = a.getCredits()
-                            .stream()
-                            .filter(credit -> credit.getId().equals(idCredit))
-                            .findFirst();
-
-                    if(existCredit.isPresent())
-                    {
-                        Credit credit = existCredit.get();
-                        credit.setCreditMont(credit.getCreditMont()-m.getMont());
-
-                        return dao.save(a)
-                                .flatMap(activ -> Mono.just(ResponseHandler.response("Done", HttpStatus.OK, null)));
-                    }
-                    else
-                        return Mono.just(ResponseHandler.response("Empty", HttpStatus.NO_CONTENT, null));
-
-                })
-                .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
-                .switchIfEmpty(Mono.just(ResponseHandler.response("Empty", HttpStatus.NO_CONTENT, null)))
-                .doFinally(fin -> log.info("[END] setMont Pasive"));
-    }
-
     @GetMapping("/creditcard/{id}/{idCreditCard}")
     public Mono<ResponseEntity<Object>> checkCreditCard(@PathVariable String id,@PathVariable int idCreditCard)
     {
@@ -189,5 +160,22 @@ public class ActiveRestController
                 })
                 .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
                 .doFinally(fin -> log.info("[END] check active credit card"));
+    }
+
+    @GetMapping("/{type}/{id}")
+    public Mono<ResponseEntity<Object>> findType(@PathVariable Integer type, @PathVariable String id)
+    {
+        log.info("[INI] findType Active");
+        return dao.findById(id)
+                .doOnNext(active -> log.info(active.toString()))
+                .flatMap(active ->
+                {
+                    if(active.getActiveType().getValue() == type)
+                        return Mono.just(ResponseHandler.response("Done", HttpStatus.OK, true));
+                    else
+                        return Mono.just(ResponseHandler.response("Types not equals", HttpStatus.BAD_REQUEST, null));
+                })
+                .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
+                .doFinally(fin -> log.info("[END] findType Active"));
     }
 }
