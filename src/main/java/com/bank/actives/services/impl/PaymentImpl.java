@@ -1,7 +1,7 @@
 package com.bank.actives.services.impl;
 
-import com.bank.actives.models.utils.ResponseClient;
-import com.bank.actives.services.ClientService;
+import com.bank.actives.models.utils.ResponsePayment;
+import com.bank.actives.services.PaymentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -9,18 +9,18 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 @Service
-public class ClientImpl implements ClientService {
-
+public class PaymentImpl implements PaymentService
+{
     @Autowired
-    @Qualifier("getWebClientClient")
+    @Qualifier("getWebClientPayment")
     WebClient webClient;
 
     @Override
-    public Mono<ResponseClient> findByCode(String id)
+    public Mono<ResponsePayment> getDebt(String idActive, String idCredit)
     {
         return webClient.get()
-                .uri("/api/client/"+ id)
+                .uri("/api/payment/debt/"+ idActive+"/"+idCredit)
                 .retrieve()
-                .bodyToMono(ResponseClient.class);
+                .bodyToMono(ResponsePayment.class);
     }
 }

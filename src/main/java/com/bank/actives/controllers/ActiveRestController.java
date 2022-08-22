@@ -1,12 +1,15 @@
 package com.bank.actives.controllers;
 
+import com.bank.actives.controllers.helpers.ActiveGetCreditDebt;
+import com.bank.actives.controllers.helpers.ActiveGetCurrentCredit;
+import com.bank.actives.controllers.helpers.ActiveRestControllerCreate;
 import com.bank.actives.handler.ResponseHandler;
-import com.bank.actives.models.dao.ActiveDao;
 import com.bank.actives.models.documents.Active;
-import com.bank.actives.models.documents.Credit;
 import com.bank.actives.models.documents.Mont;
+import com.bank.actives.services.ActiveService;
 import com.bank.actives.services.ClientService;
-import org.bson.types.ObjectId;
+import com.bank.actives.services.PaymentService;
+import com.bank.actives.services.TransactionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,26 +19,27 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
 import javax.validation.Valid;
-import java.time.LocalDateTime;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/active")
 public class ActiveRestController
 {
     @Autowired
-    private ActiveDao dao;
+    private ActiveService activeService;
     @Autowired
     private ClientService clientService;
+    @Autowired
+    private TransactionService transactionService;
+    @Autowired
+    private PaymentService paymentService;
+
     private static final Logger log = LoggerFactory.getLogger(ActiveRestController.class);
 
     @GetMapping
     public Mono<ResponseEntity<Object>> findAll()
     {
         log.info("[INI] findAll Active");
-        return dao.findAll()
-                .doOnNext(active -> log.info(active.toString()))
-                .collectList()
+        return activeService.findAll()
                 .flatMap(actives -> Mono.just(ResponseHandler.response("Done", HttpStatus.OK, actives)))
                 .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
                 .doFinally(fin -> log.info("[END] findAll Active"));
@@ -45,8 +49,7 @@ public class ActiveRestController
     public Mono<ResponseEntity<Object>> find(@PathVariable String id)
     {
         log.info("[INI] find Active");
-        return dao.findById(id)
-                .doOnNext(active -> log.info(active.toString()))
+        return activeService.find(id)
                 .flatMap(active -> Mono.just(ResponseHandler.response("Done", HttpStatus.OK, active)))
                 .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
                 .doFinally(fin -> log.info("[END] find Active"));
@@ -56,29 +59,7 @@ public class ActiveRestController
     public Mono<ResponseEntity<Object>> create(@Valid @RequestBody  Active act)
     {
         log.info("[INI] create Active");
-        return clientService.findByCode(act.getClientId())
-                .doOnNext(transaction -> log.info(transaction.toString()))
-                .flatMap(responseClient -> {
-                    if(responseClient.getData() == null){
-                        return Mono.just(ResponseHandler.response("Does not have client", HttpStatus.BAD_REQUEST, null));
-                    }
-
-                    if(responseClient.getData().getType().equals("PERSONAL")){
-                        if(act.getCredits().size()>1){
-                            return Mono.just(ResponseHandler.response(
-                                    "Only one credit per person is allowed", HttpStatus.BAD_REQUEST, null));
-                        }
-                    }
-
-                    act.getCredits().forEach(credit -> credit.setId(new ObjectId().toString()));
-                    act.setDateRegister(LocalDateTime.now());
-                    return dao.save(act)
-                            .doOnNext(active -> log.info(active.toString()))
-                            .map(active -> ResponseHandler.response("Done", HttpStatus.OK, active)                )
-                            .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
-                            ;
-
-                })
+        return ActiveRestControllerCreate.CreateActiveSequence(log,activeService,clientService,act)
                 .switchIfEmpty(Mono.just(ResponseHandler.response("Client No Content", HttpStatus.BAD_REQUEST, null)))
                 .doFinally(fin -> log.info("[END] create Active"));
     }
@@ -88,18 +69,9 @@ public class ActiveRestController
     {
         log.info("[INI] update Active");
 
-        return dao.existsById(id).flatMap(check -> {
-            if (check){
-                act.setDateUpdate(LocalDateTime.now());
-                return dao.save(act)
-                        .doOnNext(active -> log.info(active.toString()))
-                        .map(active -> ResponseHandler.response("Done", HttpStatus.OK, active)                )
-                        .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)));
-            }
-            else
-                return Mono.just(ResponseHandler.response("Not found", HttpStatus.NOT_FOUND, null));
-
-        }).doFinally(fin -> log.info("[END] update Active"));
+        return activeService.update(id,act)
+                .flatMap(active -> Mono.just(ResponseHandler.response("Done", HttpStatus.OK, active))
+                .doFinally(fin -> log.info("[END] update Active")));
     }
 
     @DeleteMapping("/{id}")
@@ -107,75 +79,63 @@ public class ActiveRestController
     {
         log.info("[INI] delete Active");
 
-        return dao.existsById(id).flatMap(check -> {
-            if (check)
-                return dao.deleteById(id).then(Mono.just(ResponseHandler.response("Done", HttpStatus.OK, null)));
-            else
-                return Mono.just(ResponseHandler.response("Not found", HttpStatus.NOT_FOUND, null));
-        }).doFinally(fin -> log.info("[END] update Active"));
+        return activeService.delete(id)
+                .flatMap(active -> Mono.just(ResponseHandler.response("Done", HttpStatus.OK, null))
+                .doFinally(fin -> log.info("[END] delete Active")));
 
     }
 
     @GetMapping("/mont/{id}/{idCredit}")
     public Mono<ResponseEntity<Object>> getMontData(@PathVariable String id,@PathVariable String idCredit) {
-        log.info("[INI] Find Pasive");
-        return dao.findById(id)
-                .doOnNext(active -> log.info(active.toString()))
-                .flatMap(active -> {
-                    Optional<Credit> existCredit = active.getCredits()
-                            .stream()
-                            .filter(credit -> credit.getId().equals(idCredit))
-                            .findFirst();
-
-                    if(existCredit.isPresent())
-                    {
-                        Mont mont = new Mont();
-                        mont.setMont(existCredit.get().getCreditMont());
+        log.info("[INI] getMontData");
+        return activeService.creditMont(id,idCredit)
+                .flatMap(mont -> {
+                    if(mont!=null)
                         return Mono.just(ResponseHandler.response("Done", HttpStatus.OK, mont));
-                    }
                     else
                         return Mono.just(ResponseHandler.response("Empty", HttpStatus.NO_CONTENT, null));
 
                 })
-                .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
-                .switchIfEmpty(Mono.just(ResponseHandler.response("Empty", HttpStatus.NO_CONTENT, null)))
-                .doFinally(fin -> log.info("[END] Find Pasive"));
+                .doFinally(fin -> log.info("[END] getMontData"));
     }
 
-    @GetMapping("/creditcard/{id}/{idCreditCard}")
-    public Mono<ResponseEntity<Object>> checkCreditCard(@PathVariable String id,@PathVariable int idCreditCard)
+    @GetMapping("/creditcard/{id}/{type}")
+    public Mono<ResponseEntity<Object>> checkCreditCard(@PathVariable String id,@PathVariable Integer type)
     {
         log.info("[INI] check active credit card");
-        return dao.findAll()
-                .filter(active ->
-                        active.getClientId().equals(id) && !active.getCredits().isEmpty() &&active.getActiveType().value == idCreditCard)
-                .collectList()
-                .flatMap(actives -> {
-                    Optional<Active> existActive = actives.stream().findFirst();
-
-                    if(existActive.isPresent())
-                        return Mono.just(ResponseHandler.response("Done", HttpStatus.OK, true));
-                    else
-                        return Mono.just(ResponseHandler.response("Not Found", HttpStatus.BAD_REQUEST, null));
-                })
-                .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
+        return activeService.getActiveCreditCard(id,type)
+                .flatMap(active -> Mono.just(ResponseHandler.response("Done", HttpStatus.OK, active)))
+                .switchIfEmpty(Mono.just(ResponseHandler.response("Empty", HttpStatus.NO_CONTENT, null)))
                 .doFinally(fin -> log.info("[END] check active credit card"));
     }
 
-    @GetMapping("/{type}/{id}")
-    public Mono<ResponseEntity<Object>> findType(@PathVariable Integer type, @PathVariable String id)
+    @GetMapping("/type/{id}")
+    public Mono<ResponseEntity<Object>> findType(@PathVariable String id)
     {
         log.info("[INI] findType Active");
-        return dao.findById(id)
-                .doOnNext(active -> log.info(active.toString()))
+        return activeService.find(id)
                 .flatMap(active ->
-                {
-                    if(active.getActiveType().getValue() == type)
-                        return Mono.just(ResponseHandler.response("Done", HttpStatus.OK, true));
-                    else
-                        return Mono.just(ResponseHandler.response("Types not equals", HttpStatus.BAD_REQUEST, null));
-                })
-                .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)))
+                     Mono.just(ResponseHandler.response("Done", HttpStatus.OK, active.getActiveType().value))
+                )
                 .doFinally(fin -> log.info("[END] findType Active"));
     }
+
+    @GetMapping("/debt/{id}/{idCredit}")
+    public Mono<ResponseEntity<Object>> getCreditDebt(@PathVariable String id,@PathVariable String idCredit)
+    {
+        log.info("[INI] getCreditDebt Active");
+
+        return ActiveGetCreditDebt.getCreditDebtSequence(log,transactionService,paymentService,id,idCredit)
+                .doFinally(fin -> log.info("[END] getCreditDebt Active"));
+    }
+
+    @GetMapping("/credit/{id}/{idCredit}")
+    public Mono<ResponseEntity<Object>> getCurrentCredit(@PathVariable String id,@PathVariable String idCredit)
+    {
+        log.info("[INI] getCurrentCredit Active");
+
+        return ActiveGetCurrentCredit.getCurrentCreditSequence(log,transactionService,activeService,id,idCredit)
+                .doFinally(fin -> log.info("[END] getCurrentCredit Active"));
+    }
+
 }
