@@ -23,4 +23,12 @@ public class PaymentImpl implements PaymentService
                 .retrieve()
                 .bodyToMono(ResponsePayment.class);
     }
+
+    @Override
+    public Mono<ResponsePayment> getBalanceClient(String idClient) {
+        return webClient.get()
+                .uri("/api/payment/balance/client/"+ idClient)
+                .retrieve()
+                .bodyToMono(ResponsePayment.class);
+    }
 }

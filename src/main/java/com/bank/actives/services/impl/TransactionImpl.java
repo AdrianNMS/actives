@@ -33,4 +33,12 @@ public class TransactionImpl implements TransactionService
                 .retrieve()
                 .bodyToMono(ResponseTransaction.class);
     }
+
+    @Override
+    public Mono<ResponseTransaction> getBalanceClient(String idClient) {
+        return webClient.get()
+                .uri("/api/transaction/balance/client/"+ idClient)
+                .retrieve()
+                .bodyToMono(ResponseTransaction.class);
+    }
 }

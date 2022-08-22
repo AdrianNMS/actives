@@ -6,4 +6,5 @@ import reactor.core.publisher.Mono;
 public interface PaymentService
 {
     Mono<ResponsePayment> getDebt(String idActive, String idCredit);
+    Mono<ResponsePayment> getBalanceClient(String idClient);
 }

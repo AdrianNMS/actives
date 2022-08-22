@@ -1,5 +1,6 @@
 package com.bank.actives.controllers;
 
+import com.bank.actives.controllers.helpers.ActiveGetClientDebt;
 import com.bank.actives.controllers.helpers.ActiveGetCreditDebt;
 import com.bank.actives.controllers.helpers.ActiveGetCurrentCredit;
 import com.bank.actives.controllers.helpers.ActiveRestControllerCreate;
@@ -136,6 +137,15 @@ public class ActiveRestController
 
         return ActiveGetCurrentCredit.getCurrentCreditSequence(log,transactionService,activeService,id,idCredit)
                 .doFinally(fin -> log.info("[END] getCurrentCredit Active"));
+    }
+
+    @GetMapping("/debt/client/{idClient}")
+    public Mono<ResponseEntity<Object>> getCurrentClientCredit(@PathVariable String idClient)
+    {
+        log.info("[INI] getCurrentClientCredit Active");
+
+        return ActiveGetClientDebt.getClientDebtSequence(log,transactionService,paymentService,idClient)
+                .doFinally(fin -> log.info("[END] getCurrentClientCredit Active"));
     }
 
 }
