@@ -18,8 +18,10 @@ public class ActiveGetClientDebt
                 {
                     if(responseTransaction.getData()!=null)
                     {
-                        Mont mont = new Mont();
-                        mont.setMont(responseTransaction.getData() - debtPayment);
+                        var mont = Mont.builder()
+                                .mont(responseTransaction.getData() - debtPayment)
+                                .build();
+
                         log.info(mont.toString());
                         return Mono.just(ResponseHandler.response("Done", HttpStatus.OK, mont));
                     }

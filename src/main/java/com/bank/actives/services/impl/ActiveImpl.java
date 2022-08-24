@@ -87,8 +87,9 @@ public class ActiveImpl implements ActiveService
 
             if(existCredit.isPresent())
             {
-                Mont mont = new Mont();
-                mont.setMont(existCredit.get().getCreditMont());
+                var mont = Mont.builder()
+                        .mont(existCredit.get().getCreditMont())
+                        .build();
                 return Mono.just(mont);
             }
             else

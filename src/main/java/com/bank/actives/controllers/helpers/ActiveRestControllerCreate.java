@@ -40,7 +40,6 @@ public class ActiveRestControllerCreate
                     }
 
                     act.getCredits().forEach(credit -> credit.setId(new ObjectId().toString()));
-                    act.setDateRegister(LocalDateTime.now());
 
                     return SaveActive(log,activeService,act);
                 });
