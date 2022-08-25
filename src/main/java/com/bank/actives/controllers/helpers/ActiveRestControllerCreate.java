@@ -2,6 +2,7 @@ package com.bank.actives.controllers.helpers;
 
 import com.bank.actives.handler.ResponseHandler;
 import com.bank.actives.models.documents.Active;
+import com.bank.actives.models.documents.Credit;
 import com.bank.actives.services.ActiveService;
 import com.bank.actives.services.ClientService;
 import org.bson.types.ObjectId;
@@ -18,7 +19,7 @@ public class ActiveRestControllerCreate
     {
         return activeService.create(act)
                 .doOnNext(active -> log.info(active.toString()))
-                .map(active -> ResponseHandler.response("Done", HttpStatus.OK, active)                )
+                .flatMap(active -> Mono.just(ResponseHandler.response("Done", HttpStatus.OK, active))            )
                 .onErrorResume(error -> Mono.just(ResponseHandler.response(error.getMessage(), HttpStatus.BAD_REQUEST, null)));
 
     }
@@ -38,8 +39,6 @@ public class ActiveRestControllerCreate
                                     "Only one credit per person is allowed", HttpStatus.BAD_REQUEST, null));
                         }
                     }
-
-                    act.getCredits().forEach(credit -> credit.setId(new ObjectId().toString()));
 
                     return SaveActive(log,activeService,act);
                 });

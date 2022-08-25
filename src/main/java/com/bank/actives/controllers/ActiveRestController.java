@@ -6,11 +6,12 @@ import com.bank.actives.controllers.helpers.ActiveGetCurrentCredit;
 import com.bank.actives.controllers.helpers.ActiveRestControllerCreate;
 import com.bank.actives.handler.ResponseHandler;
 import com.bank.actives.models.documents.Active;
-import com.bank.actives.models.documents.Mont;
 import com.bank.actives.services.ActiveService;
 import com.bank.actives.services.ClientService;
 import com.bank.actives.services.PaymentService;
 import com.bank.actives.services.TransactionService;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.timelimiter.annotation.TimeLimiter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +37,8 @@ public class ActiveRestController
 
     private static final Logger log = LoggerFactory.getLogger(ActiveRestController.class);
 
+    private static final String RESILENCE_SERVICE = "defaultConfig";
+
     @GetMapping
     public Mono<ResponseEntity<Object>> findAll()
     {
@@ -57,6 +60,8 @@ public class ActiveRestController
     }
 
     @PostMapping
+    @TimeLimiter(name = RESILENCE_SERVICE)
+    @CircuitBreaker(name = RESILENCE_SERVICE,fallbackMethod ="failedCreate")
     public Mono<ResponseEntity<Object>> create(@Valid @RequestBody  Active act)
     {
         log.info("[INI] create Active");
@@ -122,6 +127,8 @@ public class ActiveRestController
     }
 
     @GetMapping("/debt/{id}/{idCredit}")
+    @TimeLimiter(name = RESILENCE_SERVICE)
+    @CircuitBreaker(name = RESILENCE_SERVICE,fallbackMethod ="failedCreditDebt")
     public Mono<ResponseEntity<Object>> getCreditDebt(@PathVariable String id,@PathVariable String idCredit)
     {
         log.info("[INI] getCreditDebt Active");
@@ -131,6 +138,8 @@ public class ActiveRestController
     }
 
     @GetMapping("/credit/{id}/{idCredit}")
+    @TimeLimiter(name = RESILENCE_SERVICE)
+    @CircuitBreaker(name = RESILENCE_SERVICE,fallbackMethod ="failedCurrentCredit")
     public Mono<ResponseEntity<Object>> getCurrentCredit(@PathVariable String id,@PathVariable String idCredit)
     {
         log.info("[INI] getCurrentCredit Active");
@@ -140,6 +149,8 @@ public class ActiveRestController
     }
 
     @GetMapping("/debt/client/{idClient}")
+    @TimeLimiter(name = RESILENCE_SERVICE)
+    @CircuitBreaker(name = RESILENCE_SERVICE,fallbackMethod ="failedCurrentClientCredit")
     public Mono<ResponseEntity<Object>> getCurrentClientCredit(@PathVariable String idClient)
     {
         log.info("[INI] getCurrentClientCredit Active");
@@ -147,5 +158,47 @@ public class ActiveRestController
         return ActiveGetClientDebt.getClientDebtSequence(log,transactionService,paymentService,idClient)
                 .doFinally(fin -> log.info("[END] getCurrentClientCredit Active"));
     }
+
+    public Mono<ResponseEntity<Object>> failedCreate(Active act, RuntimeException e)
+    {
+        log.error("[INIT] failedCreate");
+        log.error(e.getMessage());
+        log.error(act.toString());
+        log.error("[END] failedCreate");
+        return Mono.just(ResponseHandler.response("Overcharged method", HttpStatus.OK, null));
+    }
+
+    public Mono<ResponseEntity<Object>> failedCreditDebt(String id, String idCredit, RuntimeException e)
+    {
+        log.error("[INIT] failedCreditDebt");
+        log.error(e.getMessage());
+        log.error(id);
+        log.error(idCredit);
+        log.error("[END] failedCreditDebt");
+        return Mono.just(ResponseHandler.response("Overcharged method", HttpStatus.OK, null));
+    }
+
+    public Mono<ResponseEntity<Object>> failedCurrentCredit(String id, String idCredit, RuntimeException e)
+    {
+        log.error("[INIT] failedCurrentCredit");
+        log.error(e.getMessage());
+        log.error(id);
+        log.error(idCredit);
+        log.error("[END] failedCurrentCredit");
+        return Mono.just(ResponseHandler.response("Overcharged method", HttpStatus.OK, null));
+    }
+
+    public Mono<ResponseEntity<Object>> failedCurrentClientCredit(String idClient, RuntimeException e)
+    {
+        log.error("[INIT] failedCurrentClientCredit");
+        log.error(e.getMessage());
+        log.error(idClient);
+        log.error("[END] failedCurrentClientCredit");
+        return Mono.just(ResponseHandler.response("Overcharged method", HttpStatus.OK, null));
+    }
+
+
+
+
 
 }
