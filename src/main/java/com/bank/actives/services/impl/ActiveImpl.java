@@ -4,6 +4,7 @@ import com.bank.actives.models.dao.ActiveDao;
 import com.bank.actives.models.documents.Active;
 import com.bank.actives.models.documents.Credit;
 import com.bank.actives.models.documents.Mont;
+import com.bank.actives.models.enums.ActiveType;
 import com.bank.actives.services.ActiveService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -65,6 +66,8 @@ public class ActiveImpl implements ActiveService
                     Optional<Active> existActive = actives.stream()
                             .filter(active -> active.getClientId().equals(id)
                                     && !active.getCredits().isEmpty()
+                                    && active.getActiveType() != ActiveType.PERSONAL_CREDIT
+                                    && active.getActiveType() != ActiveType.COMPANY_CREDIT
                                     && active.getActiveType().value == type)
                             .findFirst();
 
