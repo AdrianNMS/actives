@@ -16,5 +16,5 @@ jobs:
       - name: Build with Maven
         run: mvn clean install
       - name: Run unit tests
-        run : mvn clean test -Dtest=PersonRestControllersTest
+        run : mvn clean test -Dtest=ActiveRestControllersTest
 
