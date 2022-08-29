@@ -1,4 +1,4 @@
-name: Person Workflow
+name: Active Workflow
 on:
   push:
     branches:
