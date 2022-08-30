@@ -39,8 +39,9 @@ public class ActiveImpl implements ActiveService
     @Override
     public Mono<Active> update(String id, Active active) {
         return dao.existsById(id).flatMap(check -> {
-            if (check)
+            if (Boolean.TRUE.equals(check))
             {
+                active.setId(id);
                 active.setDateUpdate(LocalDateTime.now());
                 return dao.save(active);
             }
@@ -52,7 +53,7 @@ public class ActiveImpl implements ActiveService
     @Override
     public Mono<Object> delete(String id) {
         return dao.existsById(id).flatMap(check -> {
-            if (check)
+            if (Boolean.TRUE.equals(check))
                 return dao.deleteById(id).then(Mono.just(true));
             else
                 return Mono.empty();

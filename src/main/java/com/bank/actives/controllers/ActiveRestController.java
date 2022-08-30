@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
 import javax.validation.Valid;
+import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/api/active")
@@ -65,6 +66,7 @@ public class ActiveRestController
     public Mono<ResponseEntity<Object>> create(@Valid @RequestBody  Active act)
     {
         log.info("[INI] create Active");
+        act.setDateRegister(LocalDateTime.now());
         return ActiveRestControllerCreate.CreateActiveSequence(log,activeService,clientService,act)
                 .switchIfEmpty(Mono.just(ResponseHandler.response("Client No Content", HttpStatus.BAD_REQUEST, null)))
                 .doFinally(fin -> log.info("[END] create Active"));
@@ -74,7 +76,6 @@ public class ActiveRestController
     public Mono<ResponseEntity<Object>> update(@PathVariable("id") String id,@Valid @RequestBody Active act)
     {
         log.info("[INI] update Active");
-
         return activeService.update(id,act)
                 .flatMap(active -> Mono.just(ResponseHandler.response("Done", HttpStatus.OK, active))
                 .doFinally(fin -> log.info("[END] update Active")));
